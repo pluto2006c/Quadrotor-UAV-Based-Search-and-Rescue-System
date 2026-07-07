@@ -1,0 +1,26 @@
+<launch>
+
+  <arg name="drone_id" default="1" />
+  <arg name="nearlink_port" default="/dev/ttyUSB0" />
+  <arg name="nearlink_baudrate" default="115200" />
+  <arg name="nearlink_tx_chunk_bytes" default="240" />
+  <arg name="nearlink_chunk_gap_us" default="2000" />
+  <arg name="nearlink_peer_id" default="-1" />
+
+  <!-- <node pkg="rosmsg_tcp_bridge" name="drone_$(arg drone_id)_bridge_node" type="bridge_node" output="screen" launch-prefix="valgrind" > -->
+  <node pkg="rosmsg_tcp_bridge" name="drone_$(arg drone_id)_bridge_node" type="bridge_node" output="screen" >
+    <remap from="position_cmd" to="drone_$(arg drone_id)_planning/pos_cmd"/>
+    <remap from="planning/bspline" to="drone_$(arg drone_id)_planning/bspline"/>
+    <remap from="~my_odom" to="/vins_fusion/imu_propagate"/>
+
+    <param name="drone_id" value="$(arg drone_id)"/>
+    <param name="odom_max_freq" value="70"/>
+    <param name="nearlink_port" value="$(arg nearlink_port)" type="string"/>
+    <param name="nearlink_baudrate" value="$(arg nearlink_baudrate)" type="int"/>
+    <param name="nearlink_tx_chunk_bytes" value="$(arg nearlink_tx_chunk_bytes)" type="int"/>
+    <param name="nearlink_chunk_gap_us" value="$(arg nearlink_chunk_gap_us)" type="int"/>
+    <param name="nearlink_peer_id" value="$(arg nearlink_peer_id)" type="int"/>
+
+  </node>
+
+</launch>
