@@ -69,6 +69,70 @@ BearPi-Pico H3863 firmware running on Huawei LiteOS, providing:
 - **Application Framework**: LiteOS task scheduling, device management
 - **Network Modules**: UDP client/server, SLE gateway, BLE-UART bridge
 
+### SLE (StarLight / 星闪) Application Layer
+
+星闪(SLE)是新一代短距无线通信技术，具备低功耗、低时延、高可靠的特点。在本搜救系统中，星闪用于无人机与地面设备、无人机集群之间的近距离数据透传和指令下发。
+
+#### 应用场景与数据流
+
+```
+搜救指挥中心(UDP服务器)
+        ↑ WiFi/UDP
+   [SLE Gateway]
+        ↑ SLE星闪
+   ┌────┴────┐
+   │ UAV 1   │ ←→ PX4飞控 ←→ 传感器(雷达/相机)
+   │(Server) │
+   └────┬────┘
+        │ SLE星闪 (集群内通信)
+   ┌────┴────┐
+   │ UAV 2   │
+   │(Client) │
+   └─────────┘
+```
+
+- **无人机 ↔ 飞控板**：BearPi-Pico 作为 SLE Server，通过 UART 接收飞控板的里程计、传感器数据，经星闪透传至地面站
+- **地面站 ↔ 无人机**：地面站 BearPi-Pico 作为 SLE Client，扫描并连接无人机 Server，下发航点指令、接收状态回传
+- **无人机集群**：1 个 Server（领航机）同时服务最多 8 个 Client（跟随机），实现集群内状态广播与协同避障
+- **远程监控**：SLE Gateway 模式将星闪数据桥接到 WiFi/UDP，指挥中心可远程监控搜救进度
+
+#### SLE 示例程序
+
+| 示例 | 角色 | 效果 |
+|------|------|------|
+| `sle_uart` | Server / Client | 基础点对点串口透传，UART ↔ SLE ↔ UART 双向转发 |
+| `sle_uart_echo` | Server + Client | 自动回连双角色适配器，上电自动扫描→连接→配对，断开后自动重连，LED 指示连接状态 |
+| `sle_uart_1_vs_8` | 1 Server : 8 Client | 一对多串口桥接，数据帧携带 conn_id 实现多路复用 |
+| `sle_gateway` | Server / Client+WiFi | 星闪到 WiFi 网关，Client 端连接 WiFi 后通过 UDP socket 转发数据至远程服务器 |
+
+#### 技术参数
+
+| 参数 | 值 |
+|------|-----|
+| UART 波特率 | 115200 bps |
+| 数据格式 | 8N1 |
+| SLE MTU | 520 字节 |
+| 扫描间隔/窗口 | 100ms / 100ms |
+| 最大集群规模 | 1 Server + 8 Client |
+
+## System Data Flow
+
+The complete data flow in the search and rescue scenario:
+
+```
+[RealSense D435] ──depth/color──→ [VINS-Fusion] ──odom──→ [EGO-Planner]
+                                                            │
+                                                     replan / trajectory
+                                                            │
+                                                            ↓
+[Ground Station] ←──SLE/WiFi/UDP──→ [BearPi-Pico] ←──UART──→ [PX4 Controller]
+                                                            │
+                                                          motor cmd
+                                                            │
+                                                            ↓
+                                                      [Quadrotor UAV]
+```
+
 ## EGO-Planner Pipeline
 
 The planning pipeline follows a reactive FSM design:
